@@ -1,8 +1,8 @@
-function [W, out2, out3] = lsqfit(problem, U, in3, in4)
+function [W, out2, out3, HW] = lsqfit(problem, U, in3, in4)
 % [W, COMPUMEM] = LSQFIT(PROBLEM, U)
 % [W, COMPUMEM] = LSQFIT(PROBLEM, U, COMPUMEM)
-% [W, DW, COMPUMEM] = LSQFIT(PROBLEM, U, H)
-% [W, DW, COMPUMEM] = LSQFIT(PROBLEM, U, H, COMPUMEM)
+% [W, DW, COMPUMEM, HW] = LSQFIT(PROBLEM, U, H)
+% [W, DW, COMPUMEM, HW] = LSQFIT(PROBLEM, U, H, COMPUMEM)
 %
 % Given a low-rank matrix completion problem structure PROBLEM and a guess
 % at the column space U, returns a matrix W such that U*W is as close as
@@ -12,7 +12,7 @@ function [W, out2, out3] = lsqfit(problem, U, in3, in4)
 % of the mapping U -> W along H.
 %
 % COMPUMEM is an optional structure in which common computations between
-% LSQFIT and RTRMCOBJECTIVE will be stored so as to reduce the amount of
+% LSQFIT and RTRMC will be stored so as to reduce the amount of
 % redundant computations.
 %
 % The algorithm implemented here is described in the following paper:
@@ -24,12 +24,14 @@ function [W, out2, out3] = lsqfit(problem, U, in3, in4)
 % Nicolas Boumal, UCLouvain, May 19, 2011.
 % http://perso.uclouvain.be/nicolas.boumal/RTRMC/
 %
-% SEE ALSO: buildproblem rtrmcobjective
+% SEE ALSO: buildproblem rtrmc
+
+% Modified May 13, 2021 to return HW rather than save it in compumem.
     
     Hprovided = false;
     
     if nargin == 2
-        compumem = struct('dob', clock());
+        compumem = struct();
     elseif nargin == 3
         % the third argument is either a compumem structure or a direction
         % H for the Hessian computation
@@ -38,7 +40,7 @@ function [W, out2, out3] = lsqfit(problem, U, in3, in4)
         else
             H = in3;
             Hprovided = true;
-            compumem = struct('dob', clock());
+            compumem = struct();
         end
     elseif nargin == 4
         H = in3;
@@ -86,17 +88,12 @@ function [W, out2, out3] = lsqfit(problem, U, in3, in4)
         end
         RU = compumem.RU;
         
-        % Compumem shouldn't hold information relative to H.
-        % But then we compute HW multiple times, which is a shame...
-        % TODO: make this right.
-        % if ~isfield(compumem, 'HW')
-        %     compumem.HW = spmaskmult(H, W, I, J);
-        % end
-        % HW = compumem.HW;
+        % Compumem shouldn't hold information relative to H, so we do not
+        % store HW: we return it as an extra output.
+        % It's possible that HW is computed more than once with the same H
+        % and W: if so, it would be a point to improve.
+        % (Comment and changes: May 13, 2021.)
         HW = spmaskmult(H, W, I, J);
-        
-        % we still save it, but only for immediate usage in rtrmcobjective
-        compumem.HW = HW;
         
         Q1 = multfullsparse(H.', RU, mask);
         Q2 = multfullsparse(U.', Chat.*HW, mask);

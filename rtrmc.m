@@ -247,13 +247,8 @@ function [U, W, stats] = rtrmc(problem, opts, U0)
     %% Define the Hessian function
     function [hess, store] = hessian(U, H, store)
         
-        [W, dW, store] = lsqfit(problem, U, H, store);
+        [W, dW, store, HW] = lsqfit(problem, U, H, store);
         UdW = spmaskmult(U, dW, I, J);
-        
-        if ~isfield(store, 'HW')
-            store.HW  = spmaskmult(H, W, I, J);
-        end
-        HW = store.HW;
         
         if ~isfield(store, 'grad')
             [~, store] = gradient(U, store);
